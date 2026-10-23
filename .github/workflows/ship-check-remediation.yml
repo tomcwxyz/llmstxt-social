@@ -28,6 +28,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: packages/web/package-lock.json
+      - name: Upgrade npm resolver
+        run: npm install --global npm@11
       - name: Upgrade direct dependencies and regenerate the lockfile
         working-directory: packages/web
         run: |
@@ -40,10 +42,10 @@ jobs:
           npm pkg set 'dependencies.js-yaml=latest'
           rm -f package-lock.json
           rm -rf node_modules
-          npm install --package-lock-only --ignore-scripts --no-audit
+          npm install --package-lock-only --ignore-scripts --no-audit --legacy-peer-deps
       - name: Fresh installation from regenerated lockfile
         working-directory: packages/web
-        run: npm ci --no-audit
+        run: npm ci --no-audit --legacy-peer-deps
       - name: Run frontend tests
         working-directory: packages/web
         run: npm test
@@ -59,6 +61,18 @@ jobs:
             git commit -m "fix(web): update vulnerable frontend dependencies"
             git push origin HEAD:fix/ship-check-dependencies-2026-10
           fi
+      - name: Save npm resolver debug logs
+        if: failure()
+        run: |
+          mkdir -p npm-debug
+          cp /home/runner/.npm/_logs/*debug-0.log npm-debug/ 2>/dev/null || true
+      - name: Upload resolver diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-resolver-debug
+          path: npm-debug/
+          if-no-files-found: ignore
       - name: Capture remaining dependency vulnerabilities
         if: always()
         working-directory: packages/web
