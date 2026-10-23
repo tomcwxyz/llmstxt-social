@@ -11,6 +11,10 @@ on:
       - .github/workflows/ship-check-remediation.yml
   workflow_dispatch:
 
+concurrency:
+  group: ship-check-remediation
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -77,7 +81,7 @@ jobs:
         if: always()
         working-directory: packages/web
         run: |
-          npm audit --json > ../../ship-check-npm-audit.json || true
+          timeout 90s npm audit --json > ../../ship-check-npm-audit.json || true
       - name: Upload audit evidence
         if: always()
         uses: actions/upload-artifact@v4
