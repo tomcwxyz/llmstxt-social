@@ -22,20 +22,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+          ref: fix/ship-check-dependencies-2026-10
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: packages/web/package-lock.json
-      - name: Upgrade vulnerable direct dependencies and refresh transitive lockfile
+      - name: Upgrade direct dependencies and regenerate the lockfile
         working-directory: packages/web
         run: |
-          npm install --save-dev 'happy-dom@^20.14.6' 'vitest@^4.1.0' 'vite@latest'
-          npm install 'axios@latest' 'js-yaml@latest' 'react-router-dom@^6.30.6'
-          npm audit fix || echo 'Non-breaking npm audit fix left unresolved advisories; inspect uploaded report.'
-      - name: Validate lockfile integrity
+          # Avoid npm Arborist's 'edgesOut' crash when updating the legacy lockfile.
+          npm pkg set 'devDependencies.happy-dom=^20.14.6'
+          npm pkg set 'devDependencies.vitest=^4.1.0'
+          npm pkg set 'devDependencies.vite=^7.0.0'
+          npm pkg set 'dependencies.react-router-dom=^6.30.6'
+          npm pkg set 'dependencies.axios=latest'
+          npm pkg set 'dependencies.js-yaml=latest'
+          rm -f package-lock.json
+          rm -rf node_modules
+          npm install --package-lock-only --ignore-scripts --no-audit
+      - name: Fresh installation from regenerated lockfile
         working-directory: packages/web
-        run: npm ci --ignore-scripts
+        run: npm ci --no-audit
       - name: Run frontend tests
         working-directory: packages/web
         run: npm test
