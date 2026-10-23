@@ -16,7 +16,7 @@
  * job is purely structural splicing.
  */
 
-import yaml from 'js-yaml';
+import { load, dump } from 'js-yaml';
 
 const FRONTMATTER_OPEN = /^---\r?\n/;
 // A top-level YAML key starts at column 0 with a letter or underscore.
@@ -83,7 +83,7 @@ function findKeyBlocks(yamlBody: string): KeyBlock[] {
 
 function renderKeyAsYaml(key: string, value: unknown): string {
   // Render { [key]: value } so js-yaml gives us the ``key: ...`` block we want.
-  const dumped = yaml.dump({ [key]: value }, {
+  const dumped = dump({ [key]: value }, {
     indent: 2,
     lineWidth: -1,
     noRefs: true,
@@ -186,7 +186,9 @@ export interface ParsedSection {
 
 function parseFrontmatterYaml(source: string): Record<string, unknown> {
   const fm = splitFrontmatter(source);
-  const loaded = yaml.load(fm.body) as Record<string, unknown> | null | undefined;
+  // Empty frontmatter is valid; newer js-yaml versions throw on blank input.
+  if (!fm.body.trim()) return {};
+  const loaded = load(fm.body) as Record<string, unknown> | null | undefined;
   return loaded && typeof loaded === 'object' ? loaded : {};
 }
 

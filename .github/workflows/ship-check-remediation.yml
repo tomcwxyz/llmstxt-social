@@ -1,0 +1,91 @@
+name: Ship Check dependency remediation
+
+# Deliberately scoped to this remediation branch. Never changes the default branch.
+on:
+  push:
+    branches:
+      - fix/ship-check-dependencies-2026-10
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/ship-check-remediation.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ship-check-remediation
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: fix/ship-check-dependencies-2026-10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: packages/web/package-lock.json
+      - name: Upgrade npm resolver
+        run: npm install --global npm@11
+      - name: Upgrade direct dependencies and regenerate the lockfile
+        working-directory: packages/web
+        run: |
+          # Avoid npm Arborist's 'edgesOut' crash when updating the legacy lockfile.
+          npm pkg set 'devDependencies.happy-dom=^20.14.6'
+          npm pkg set 'devDependencies.vitest=^4.1.0'
+          npm pkg set 'devDependencies.vite=^7.0.0'
+          npm pkg set 'dependencies.react-router-dom=^6.30.6'
+          npm pkg set 'dependencies.axios=latest'
+          npm pkg set 'dependencies.js-yaml=latest'
+          rm -f package-lock.json
+          rm -rf node_modules
+          npm install --package-lock-only --ignore-scripts --no-audit --legacy-peer-deps
+      - name: Fresh installation from regenerated lockfile
+        working-directory: packages/web
+        run: npm ci --no-audit --legacy-peer-deps
+      - name: Run frontend tests
+        working-directory: packages/web
+        run: npm test
+      - name: Typecheck and production build
+        working-directory: packages/web
+        run: npm run build
+      - name: Commit verified manifest and lockfile changes to remediation branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/web/package.json packages/web/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(web): update vulnerable frontend dependencies"
+            git push origin HEAD:fix/ship-check-dependencies-2026-10
+          fi
+      - name: Save npm resolver debug logs
+        if: failure()
+        run: |
+          mkdir -p npm-debug
+          cp /home/runner/.npm/_logs/*debug-0.log npm-debug/ 2>/dev/null || true
+      - name: Upload resolver diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-resolver-debug
+          path: npm-debug/
+          if-no-files-found: ignore
+      - name: Capture remaining dependency vulnerabilities
+        if: always()
+        working-directory: packages/web
+        run: |
+          timeout 90s npm audit --json > ../../ship-check-npm-audit.json || true
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ship-check-dependency-audit
+          path: ship-check-npm-audit.json
+          if-no-files-found: warn

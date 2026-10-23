@@ -12,8 +12,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import OpenOrgGeneratePage from './Generate';
 import type { GenerateStatusResponse } from '../../api/openorg';
 
-const generateProfile = vi.fn<[string, string], Promise<unknown>>();
-const lookupCharity = vi.fn<[string], Promise<unknown>>();
+const generateProfile = vi.fn<(number: string, email: string) => Promise<unknown>>();
+const lookupCharity = vi.fn<(number: string) => Promise<unknown>>();
 let statusData: GenerateStatusResponse | undefined;
 
 vi.mock('../../api/openorg', async () => {
