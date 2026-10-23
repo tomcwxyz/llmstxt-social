@@ -12,10 +12,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import NewRecordPage from './NewRecord';
 
-const saveStrategy = vi.fn<[string, string, string], Promise<undefined>>(
+const saveStrategy = vi.fn<(orgId: string, slug: string, markdown: string) => Promise<undefined>>(
   async () => undefined,
 );
-const saveIdea = vi.fn<[string, string, string], Promise<undefined>>(
+const saveIdea = vi.fn<(orgId: string, slug: string, markdown: string) => Promise<undefined>>(
   async () => undefined,
 );
 
