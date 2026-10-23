@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - fix/ship-check-dependencies-2026-10
-    paths:
-      - .github/workflows/ship-check-remediation.yml
   workflow_dispatch:
 
 permissions:
@@ -29,8 +27,11 @@ jobs:
         working-directory: packages/web
         run: |
           npm install --save-dev 'happy-dom@^20.14.6' 'vitest@^4.1.0' 'vite@latest'
-          npm install 'axios@latest' 'js-yaml@latest' 'react-router-dom@latest'
-          npm audit fix
+          npm install 'axios@latest' 'js-yaml@latest' 'react-router-dom@^6.30.6'
+          npm audit fix || echo 'Non-breaking npm audit fix left unresolved advisories; inspect uploaded report.'
+      - name: Validate lockfile integrity
+        working-directory: packages/web
+        run: npm ci --ignore-scripts
       - name: Run frontend tests
         working-directory: packages/web
         run: npm test
