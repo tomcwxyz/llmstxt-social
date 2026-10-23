@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - fix/ship-check-dependencies-2026-10
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/ship-check-remediation.yml
   workflow_dispatch:
 
 permissions:
