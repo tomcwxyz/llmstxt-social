@@ -186,6 +186,8 @@ export interface ParsedSection {
 
 function parseFrontmatterYaml(source: string): Record<string, unknown> {
   const fm = splitFrontmatter(source);
+  // Empty frontmatter is valid; newer js-yaml versions throw on blank input.
+  if (!fm.body.trim()) return {};
   const loaded = load(fm.body) as Record<string, unknown> | null | undefined;
   return loaded && typeof loaded === 'object' ? loaded : {};
 }
