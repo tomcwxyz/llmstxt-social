@@ -1,0 +1,60 @@
+name: Ship Check dependency remediation
+
+# Deliberately scoped to this remediation branch. Never changes the default branch.
+on:
+  push:
+    branches:
+      - fix/ship-check-dependencies-2026-10
+    paths:
+      - .github/workflows/ship-check-remediation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: packages/web/package-lock.json
+      - name: Upgrade vulnerable direct dependencies and refresh transitive lockfile
+        working-directory: packages/web
+        run: |
+          npm install --save-dev 'happy-dom@^20.14.6' 'vitest@^4.1.0' 'vite@latest'
+          npm install 'axios@latest' 'js-yaml@latest' 'react-router-dom@latest'
+          npm audit fix
+      - name: Run frontend tests
+        working-directory: packages/web
+        run: npm test
+      - name: Typecheck and production build
+        working-directory: packages/web
+        run: npm run build
+      - name: Commit verified manifest and lockfile changes to remediation branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/web/package.json packages/web/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(web): update vulnerable frontend dependencies"
+            git push origin HEAD:fix/ship-check-dependencies-2026-10
+          fi
+      - name: Capture remaining dependency vulnerabilities
+        if: always()
+        working-directory: packages/web
+        run: |
+          npm audit --json > ../../ship-check-npm-audit.json || true
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ship-check-dependency-audit
+          path: ship-check-npm-audit.json
+          if-no-files-found: warn
